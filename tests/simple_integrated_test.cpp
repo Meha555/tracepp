@@ -21,7 +21,7 @@ int main()
         TRACE_END("MainFunction");
 
         // 测试即时事件
-        TRACE_INSTANT("StartEvent", "g");
+        TRACE_INSTANT("StartEvent");
 
         // 测试异步事件
         TRACE_ASYNC_BEGIN("BackgroundTask", "task-1", "background");

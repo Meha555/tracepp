@@ -35,8 +35,8 @@
 #define TRACE_DUMP(filename)
 #else
 #define TRACE_SCOPE(name) trace::TraceScope TRACE_UNIQUE(__trace_scope_, __LINE__)(name);
-#define TRACE_BEGIN(name, ...) trace::Tracer::Instance().begin(name, ##__VA_ARGS__);
-#define TRACE_END(name, ...) trace::Tracer::Instance().end(name, ##__VA_ARGS__);
+#define TRACE_BEGIN(name, ...) trace::Tracer::Instance().beginDuration(name, ##__VA_ARGS__);
+#define TRACE_END(name, ...) trace::Tracer::Instance().endDuration(name, ##__VA_ARGS__);
 #define TRACE_INSTANT(name, ...) trace::Tracer::Instance().instant(name, ##__VA_ARGS__);
 #define TRACE_ASYNC_BEGIN(name, id, ...) trace::Tracer::Instance().asyncBegin(name, id, ##__VA_ARGS__);
 #define TRACE_ASYNC_END(name, id, ...) trace::Tracer::Instance().asyncEnd(name, id, ##__VA_ARGS__);
@@ -80,7 +80,7 @@ public:
      * @brief 记录一个即时事件(Instant Event)
      * @param name 事件名称
      */
-    void instant(const char *name, const char *scope = "g")
+    void instant(const char *name, Event::Scope scope = Event::Scope::Thread)
     {
         setThreadName();
         pushEvent(Event::CreateInstant(name, now_us(), pid(), tid(), scope));
@@ -119,22 +119,22 @@ public:
         pushEvent(e);
     }
 
-    void begin(const char *name, const char *cname = nullptr)
+    void beginDuration(const char *name, const char *cname = nullptr)
     {
         setThreadName();
         Samples &data = tls();
-        Event event = Event::CreateBegin(name, now_us(), pid(), tid());
+        Event event = Event::CreateDurationBegin(name, now_us(), pid(), tid());
         if (cname) {
             event.cname = cname;
         }
         pushEvent(event);
     }
 
-    void end(const char *name, const char *cname = nullptr)
+    void endDuration(const char *name, const char *cname = nullptr)
     {
         setThreadName();
         Samples &data = tls();
-        Event event = Event::CreateEnd(name, now_us(), pid(), tid());
+        Event event = Event::CreateDurationEnd(name, now_us(), pid(), tid());
         if (cname) {
             event.cname = cname;
         }

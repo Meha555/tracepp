@@ -1,27 +1,52 @@
 # tracepp
 
-导出 Google Chrome Tracing Format 的JSON文件的埋点性能分析库。
+导出 [Google Chrome Tracing Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU) (JSON Array Format) 的JSON文件的埋点性能分析库。
 
 ## 快速开始
 
 1. 使用提供的宏跟踪代码执行：
 
-   ```
-   void some_function() {
-     TRACE_SCOPE("some_function");  // 自动跟踪函数作用域
+   ```cpp
+   #include "trace.hpp"
    
-     // 函数执行代码...
-   
-     TRACE_INSTANT("interesting_point");  // 记录即时事件
-   
-     // 更多代码...
+   void example_function() {
+       // 自动作用域跟踪
+       TRACE_SCOPE("example_function");
+       
+       // 手动开始/结束跟踪
+       TRACE_BEGIN("manual_scope");
+       // ... 代码执行
+       TRACE_END("manual_scope");
+       
+       // 即时事件
+       TRACE_INSTANT("important_point", "g");
+       
+       // 异步事件
+       TRACE_ASYNC_BEGIN("background_task", "task-1", "background");
+       // ... 异步操作
+       TRACE_ASYNC_END("background_task", "task-1", "background");
+       
+       // 流事件
+       TRACE_FLOW_START("data_pipeline", "pipe-1");
+       // ... 数据处理
+       TRACE_FLOW_END("data_pipeline", "pipe-1");
+       
+       // 计数器事件
+       TRACE_COUNTER("MemoryUsage", "heap_size", 1024.0);
+       TRACE_COUNTER("CPUUsage", "cpu_percent", 45.5);
+       
+       // 对象快照
+       TRACE_OBJECT_SNAPSHOT("SystemState", "state-1", "System initialized");
    }
-   ```
-
-2. 程序结束时保存跟踪结果：
-
-   ```
-   TRACE_DUMP("trace_result.json");
+   
+   int main() {
+       example_function();
+       
+       // 导出跟踪数据
+       TRACE_DUMP("trace.json");
+       
+       return 0;
+   }
    ```
 
 3. 在 Chrome 浏览器中查看结果：
@@ -47,56 +72,11 @@
 - `TRACE_DATA(p_str)`：获取已收集的跟踪数据并保存到指定字符串指针
 - `TRACE_DUMP(filename)`：将跟踪数据保存到文件
 
-### 使用示例
-
-```cpp
-#include "tracer.hpp"
-
-void example_function() {
-    // 自动作用域跟踪
-    TRACE_SCOPE("example_function");
-    
-    // 手动开始/结束跟踪
-    TRACE_BEGIN("manual_scope");
-    // ... 代码执行
-    TRACE_END("manual_scope");
-    
-    // 即时事件
-    TRACE_INSTANT("important_point", "g");
-    
-    // 异步事件
-    TRACE_ASYNC_BEGIN("background_task", "task-1", "background");
-    // ... 异步操作
-    TRACE_ASYNC_END("background_task", "task-1", "background");
-    
-    // 流事件
-    TRACE_FLOW_START("data_pipeline", "pipe-1");
-    // ... 数据处理
-    TRACE_FLOW_END("data_pipeline", "pipe-1");
-    
-    // 计数器事件
-    TRACE_COUNTER("MemoryUsage", "heap_size", 1024.0);
-    TRACE_COUNTER("CPUUsage", "cpu_percent", 45.5);
-    
-    // 对象快照
-    TRACE_OBJECT_SNAPSHOT("SystemState", "state-1", "System initialized");
-}
-
-int main() {
-    example_function();
-    
-    // 导出跟踪数据
-    TRACE_DUMP("trace.json");
-    
-    return 0;
-}
-```
-
 ### 禁用跟踪
 
 定义 `TRACE_DISABLED` 宏可以在编译时禁用所有跟踪代码：
 
-```
+```cpp
 #define TRACE_DISABLED
 #include "tracer.hpp"
 ```
@@ -105,3 +85,8 @@ int main() {
 
 - Tracer 使用环形缓冲区存储事件，默认容量为 10,000 个事件
 - 达到容量上限后，新事件会覆盖最旧的事件
+
+## 参考
+
+- [Google Chrome Tracing Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU)
+- https://blog.csdn.net/u011331731/article/details/108354605
