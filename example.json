@@ -1,0 +1,18 @@
+[ 
+  {"name": "我的一天", "ph": "b", "cat": "daily", "id": "my-day", "pid": "Main", "tid": "工作", "ts": 0},
+  {"name": "我的一天", "ph": "e", "cat": "daily", "id": "my-day", "pid": "Main", "tid": "工作", "ts": 37800000000}, 
+ 
+  {"name": "出方案", "cname": "good","ph": "X", "pid": "Main", "tid": "工作", "ts": 0, "dur": 28800000000}, 
+  {"name": "想到一个点子", "ph": "I", "pid": "Main", "tid": "工作", "ts": 18800000000}, 
+  {"name": "connect", "ph": "s", "id": "my-work", "pid": "Main", "tid": "工作", "ts": 28800000000}, 
+  {"name": "connect", "ph": "f", "bp": "e", "id": "my-work", "pid": "Main", "tid": "工作", "ts": 32400000000},
+  {"name": "写代码", "ph": "X", "pid": "Main", "tid": "工作", "ts": 32400000000, "dur": 3600000000},
+ 
+  {"name": "反思", "ph": "O", "id": "Ref", "pid": "Main", "tid": "其他", "ts": 37800000000, "args": {"snapshot": "充实的一天呢"}},
+ 
+  {"name": "看电影", "ph": "B", "pid": "Main", "tid": "休闲", "ts": 28800000000},
+  {"name": "看电影", "ph": "E", "pid": "Main", "tid": "休闲", "ts": 32400000000},
+ 
+  {"name": "遛狗", "ph": "X", "pid": "Main", "tid": "休闲", "ts": 36000000000, "dur": 1880000000},
+  {"name": "process_name", "ph": "M", "pid": "Main", "tid": "工作", "args": {"name": "时间线"}}
+]
