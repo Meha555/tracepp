@@ -1,0 +1,20 @@
+add_requires("libcurl")
+
+target("exp_tracer")
+    set_kind("binary")
+    set_group("examples")
+    add_files("exp_tracer.cpp")
+    add_deps("tracepp")
+    add_packages("libcurl")
+
+target("exp_event")
+    set_kind("binary")
+    set_group("examples")
+    add_files("exp_event.cpp")
+    add_deps("tracepp")
+
+target("simple_integrated")
+    set_kind("binary")
+    set_group("examples")
+    add_files("simple_integrated.cpp")
+    add_deps("tracepp")
