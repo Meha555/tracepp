@@ -40,15 +40,15 @@ void generate_simple_trace_example()
     events.push_back(Event::CreateThreadName(base_ts, pid, leisure_tid, "LeisureThread"));
 
     // Watching movie - 开始和结束事件
-    events.push_back(Event::Create("WatchMovie", Event::Phase::Begin, base_ts + 28800000000, pid, leisure_tid));
-    events.push_back(Event::Create("WatchMovie", Event::Phase::End, base_ts + 32400000000, pid, leisure_tid));
+    events.push_back(Event::Create("WatchMovie", Event::Phase::DurationBegin, base_ts + 28800000000, pid, leisure_tid));
+    events.push_back(Event::Create("WatchMovie", Event::Phase::DurationEnd, base_ts + 32400000000, pid, leisure_tid));
 
     // Walking dog - 完整事件 (1.8秒)
     auto walking = Event::CreateComplete("WalkDog", base_ts + 36000000000, 1800000000, pid, leisure_tid);
     events.push_back(walking);
 
     // 5. 即时事件 - Got an idea
-    auto idea = Event::CreateInstant("GotIdea", base_ts + 18800000000, pid, work_tid, "g");
+    auto idea = Event::CreateInstant("GotIdea", base_ts + 18800000000, pid, work_tid, Event::Scope::Global);
     events.push_back(idea);
 
     // 6. 流事件 - connect
@@ -140,8 +140,8 @@ void generate_performance_analysis()
     events.push_back(Event::CreateFlowEnd("DataPipeline", base_ts + 9500000, pid, 2001, "pipeline-1"));
 
     // Instant events - Important moments
-    events.push_back(Event::CreateInstant("CacheHit", base_ts + 3000000, pid, 2002, "g"));
-    events.push_back(Event::CreateInstant("CacheMiss", base_ts + 7000000, pid, 2002, "g"));
+    events.push_back(Event::CreateInstant("CacheHit", base_ts + 3000000, pid, 2002, Event::Scope::Process));
+    events.push_back(Event::CreateInstant("CacheMiss", base_ts + 7000000, pid, 2002, Event::Scope::Thread));
 
     // Output to file
     std::ofstream out("performance_analysis.json");

@@ -7,12 +7,12 @@ using namespace trace;
 
 int main()
 {
-    Event instant = Event::CreateInstant("Quote\"Name", 100, 1, 2, "t");
+    Event instant = Event::CreateInstant("Quote\"Name", 100, 1, 2, Event::Scope::Thread);
     instant.cat = "unit";
     instant.args.push_back({"message", "line\nvalue"});
     std::string instant_json = instant.toJSON();
     assert(instant_json.find("\"name\":\"Quote\\\"Name\"") != std::string::npos);
-    assert(instant_json.find("\"ph\":\"I\"") != std::string::npos);
+    assert(instant_json.find("\"ph\":\"i\"") != std::string::npos);
     assert(instant_json.find("\"cat\":\"unit\"") != std::string::npos);
     assert(instant_json.find("\"s\":\"t\"") != std::string::npos);
     assert(instant_json.find("\"args\":{") != std::string::npos);

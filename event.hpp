@@ -15,20 +15,35 @@ class Event
 {
 public:
     enum class Phase {
-        Begin,          // B - 开始事件
-        End,            // E - 结束事件
-        Instant,        // I - 即时事件
-        Complete,       // X - 完整事件（包含持续时间）
-        Metadata,       // M - 元数据事件
-        Counter,        // C - 计数器事件
-        AsyncStart,     // b - 异步事件开始
-        AsyncEnd,       // e - 异步事件结束
-        AsyncInstant,   // n - 异步即时事件
-        FlowStart,      // s - 流事件开始
-        FlowEnd,        // f - 流事件结束
-        ObjectCreated,  // N - 对象创建
-        ObjectSnapshot, // O - 对象快照
-        ObjectDeleted,  // D - 对象删除
+        DurationBegin,      // B - 流程开始事件
+        DurationEnd,        // E - 流程结束事件
+        Instant,            // i - 即时事件
+        Complete,           // X - 完整事件（包含持续时间）
+        Metadata,           // M - 元数据事件
+        Sample,             // P - 采样事件
+        Counter,            // C - 计数器事件
+        AsyncStart,         // b - 异步事件开始
+        AsyncEnd,           // e - 异步事件结束
+        AsyncInstant,       // n - 异步即时事件
+        FlowStart,          // s - 流事件开始
+        FlowEnd,            // f - 流事件结束
+        FlowStep,           // t - 流事件步骤
+        ObjectCreated,      // N - 对象创建
+        ObjectSnapshot,     // O - 对象快照
+        ObjectDeleted,      // D - 对象删除
+        MemoryDumpGlobal,   // V - 进程内存转储事件
+        MemoryDumpProcess,  // v - 全局内存转储事件
+        Mark,               // R - 标记事件
+        ClockSync,          // c - 时钟同步事件
+        ContextEnter,       // ( - 上下文进入事件
+        ContextLeave,       // ) - 上下文离开事件
+    };
+
+    // Only used for Instant Events
+    enum class Scope {
+        Global,  ///< 全局范围
+        Process, ///< 进程范围
+        Thread,  ///< 线程范围
     };
 
     /**
@@ -93,7 +108,7 @@ public:
     const char *cat = nullptr;   ///< 事件分类
     const char *id = nullptr;    ///< 异步事件或流事件的ID
     const char *cname = nullptr; ///< 颜色名称（用于可视化）
-    const char *scope = nullptr; ///< 即时事件作用域（g/p/t）
+    std::string scope;           ///< 即时事件作用域（g/p/t）
     std::list<Arg> args;         ///< 附加参数列表
 
     // 流事件特定参数
@@ -114,29 +129,29 @@ public:
     }
 
     /**
-     * @brief 创建开始事件
+     * @brief 创建流程开始事件
      */
-    static Event CreateBegin(const char *name, uint64_t ts, uint32_t pid, uint32_t tid)
+    static Event CreateDurationBegin(const char *name, uint64_t ts, uint32_t pid, uint32_t tid)
     {
-        return Create(name, Phase::Begin, ts, pid, tid);
+        return Create(name, Phase::DurationBegin, ts, pid, tid);
     }
 
     /**
-     * @brief 创建结束事件
+     * @brief 创建流程结束事件
      */
-    static Event CreateEnd(const char *name, uint64_t ts, uint32_t pid, uint32_t tid)
+    static Event CreateDurationEnd(const char *name, uint64_t ts, uint32_t pid, uint32_t tid)
     {
-        return Create(name, Phase::End, ts, pid, tid);
+        return Create(name, Phase::DurationEnd, ts, pid, tid);
     }
 
     /**
      * @brief 创建即时事件
      */
     static Event CreateInstant(const char *name, uint64_t ts, uint32_t pid, uint32_t tid,
-                               const char *scope = "g")
+                               Scope scope = Scope::Thread)
     {
         Event e = Create(name, Phase::Instant, ts, pid, tid);
-        e.scope = scope; // g=global, p=process, t=thread
+        e.scope = scopeToChar(scope);
         return e;
     }
 
@@ -287,13 +302,14 @@ public:
         if (cname) {
             json << ",\"cname\":" << quote(cname);
         }
-        if (phase == Phase::Complete) {
+        if (phase == Phase::Complete ||
+            (dur_us > 0 && (phase == Phase::DurationBegin || phase == Phase::DurationEnd))) {
             json << ",\"dur\":" << dur_us;
         }
         if (id) {
             json << ",\"id\":" << quote(id);
         }
-        if (scope) {
+        if (!scope.empty()) {
             json << ",\"s\":" << quote(scope);
         }
         if (bind_point) {
@@ -349,26 +365,50 @@ private:
     /**
      * @brief 将事件阶段转换为字符
      */
-    static char phaseToChar(Phase phase)
+    static const std::string phaseToChar(Phase phase)
     {
-        static const std::unordered_map<Phase, char> phase_map = {
-            {Phase::Begin, 'B'},
-            {Phase::End, 'E'},
-            {Phase::Instant, 'I'},
-            {Phase::Complete, 'X'},
-            {Phase::Metadata, 'M'},
-            {Phase::Counter, 'C'},
-            {Phase::AsyncStart, 'b'},
-            {Phase::AsyncEnd, 'e'},
-            {Phase::AsyncInstant, 'n'},
-            {Phase::FlowStart, 's'},
-            {Phase::FlowEnd, 'f'},
-            {Phase::ObjectCreated, 'N'},
-            {Phase::ObjectSnapshot, 'O'},
-            {Phase::ObjectDeleted, 'D'}};
+        static const std::unordered_map<Phase, const std::string> phase_map = {
+            {Phase::DurationBegin, "B"},
+            {Phase::DurationEnd, "E"},
+            {Phase::Instant, "i"},
+            {Phase::Complete, "X"},
+            {Phase::Metadata, "M"},
+            {Phase::Sample, "P"},
+            {Phase::Counter, "C"},
+            {Phase::AsyncStart, "b"},
+            {Phase::AsyncEnd, "e"},
+            {Phase::AsyncInstant, "n"},
+            {Phase::FlowStart, "s"},
+            {Phase::FlowEnd, "f"},
+            {Phase::FlowStep, "t"},
+            {Phase::ObjectCreated, "N"},
+            {Phase::ObjectSnapshot, "O"},
+            {Phase::ObjectDeleted, "D"},
+            {Phase::MemoryDumpProcess, "v"},
+            {Phase::MemoryDumpGlobal, "V"},
+            {Phase::Mark, "R"},
+            {Phase::ClockSync, "c"},
+            {Phase::ContextEnter, "("},
+            {Phase::ContextLeave, ")"},
+        };
 
         auto it = phase_map.find(phase);
-        return (it != phase_map.end()) ? it->second : '?';
+        return (it != phase_map.end()) ? it->second : "?";
+    }
+
+    /**
+     * @brief 将作用域转换为字符
+     */
+    static const std::string scopeToChar(Scope scope)
+    {
+        static const std::unordered_map<Scope, const std::string> scope_map = {
+            {Scope::Global, "g"},
+            {Scope::Process, "p"},
+            {Scope::Thread, "t"},
+        };
+
+        auto it = scope_map.find(scope);
+        return (it != scope_map.end()) ? it->second : "?";
     }
 
     /**
