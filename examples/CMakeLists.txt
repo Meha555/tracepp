@@ -9,5 +9,9 @@ add_executable(simple_integrated simple_integrated.cpp)
 target_link_libraries(simple_integrated PRIVATE tracepp)
 
 add_custom_target(phony-tracer-exps
-    DEPENDS exp_tracer exp_event simple_integrated
+    DEPENDS exp_event simple_integrated
 )
+
+if(TARGET exp_tracer)
+    add_dependencies(phony-tracer-exps exp_tracer)
+endif()

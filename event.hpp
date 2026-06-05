@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <iomanip>
 #include <list>
@@ -35,13 +36,48 @@ public:
      */
     struct Arg
     {
+        enum class Type {
+            String,
+            Number,
+            Boolean,
+            Json,
+        };
+
         std::string name;  ///< 参数名称
         std::string value; ///< 参数值
+        Type type = Type::String;
 
         Arg(const std::string &n, const std::string &v)
             : name(n)
             , value(v)
         {
+        }
+
+        Arg(const std::string &n, const std::string &v, Type t)
+            : name(n)
+            , value(v)
+            , type(t)
+        {
+        }
+
+        static Arg Number(const std::string &n, double v)
+        {
+            if (!std::isfinite(v)) {
+                return {n, "0", Type::Number};
+            }
+            std::ostringstream out;
+            out << std::setprecision(15) << v;
+            return {n, out.str(), Type::Number};
+        }
+
+        static Arg Boolean(const std::string &n, bool v)
+        {
+            return {n, v ? "true" : "false", Type::Boolean};
+        }
+
+        static Arg Json(const std::string &n, const std::string &v)
+        {
+            return {n, v, Type::Json};
         }
     };
 
@@ -57,6 +93,7 @@ public:
     const char *cat = nullptr;   ///< 事件分类
     const char *id = nullptr;    ///< 异步事件或流事件的ID
     const char *cname = nullptr; ///< 颜色名称（用于可视化）
+    const char *scope = nullptr; ///< 即时事件作用域（g/p/t）
     std::list<Arg> args;         ///< 附加参数列表
 
     // 流事件特定参数
@@ -99,7 +136,7 @@ public:
                                const char *scope = "g")
     {
         Event e = Create(name, Phase::Instant, ts, pid, tid);
-        e.args.push_back({"scope", scope}); // g=global, p=process, t=thread
+        e.scope = scope; // g=global, p=process, t=thread
         return e;
     }
 
@@ -149,7 +186,7 @@ public:
                                const std::string &counter_name, double value)
     {
         Event e = Create(name, Phase::Counter, ts, pid, tid);
-        e.args.push_back({counter_name, std::to_string(value)});
+        e.args.push_back(Arg::Number(counter_name, value));
         return e;
     }
 
@@ -162,6 +199,12 @@ public:
         return CreateAsync(name, Phase::AsyncStart, ts, pid, async_id, cat);
     }
 
+    static Event CreateAsyncStart(const char *name, uint64_t ts, uint32_t pid, uint32_t tid,
+                                  const char *async_id, const char *cat = nullptr)
+    {
+        return CreateAsync(name, Phase::AsyncStart, ts, pid, tid, async_id, cat);
+    }
+
     /**
      * @brief 创建异步结束事件
      */
@@ -171,6 +214,12 @@ public:
         return CreateAsync(name, Phase::AsyncEnd, ts, pid, async_id, cat);
     }
 
+    static Event CreateAsyncEnd(const char *name, uint64_t ts, uint32_t pid, uint32_t tid,
+                                const char *async_id, const char *cat = nullptr)
+    {
+        return CreateAsync(name, Phase::AsyncEnd, ts, pid, tid, async_id, cat);
+    }
+
     /**
      * @brief 创建异步即时事件
      */
@@ -178,6 +227,12 @@ public:
                                     const char *async_id, const char *cat = nullptr)
     {
         return CreateAsync(name, Phase::AsyncInstant, ts, pid, async_id, cat);
+    }
+
+    static Event CreateAsyncInstant(const char *name, uint64_t ts, uint32_t pid, uint32_t tid,
+                                    const char *async_id, const char *cat = nullptr)
+    {
+        return CreateAsync(name, Phase::AsyncInstant, ts, pid, tid, async_id, cat);
     }
 
     /**
@@ -218,52 +273,43 @@ public:
     std::string toJSON() const
     {
         std::ostringstream json;
-        json << std::fixed << std::setprecision(6);
-
         json << "{";
 
-        // 基本字段
-        json << "\"name\":\"" << (name ? name : "") << "\"";
+        json << "\"name\":" << quote(name ? name : "");
         json << ",\"ph\":\"" << phaseToChar(phase) << "\"";
         json << ",\"ts\":" << ts_us;
         json << ",\"pid\":" << pid;
         json << ",\"tid\":" << tid;
 
-        // 可选字段
         if (cat) {
-            json << ",\"cat\":\"" << cat << "\"";
+            json << ",\"cat\":" << quote(cat);
         }
-
         if (cname) {
-            json << ",\"cname\":\"" << cname << "\"";
+            json << ",\"cname\":" << quote(cname);
         }
-
-        if (dur_us > 0 && (phase == Phase::Complete || phase == Phase::Begin || phase == Phase::End)) {
+        if (phase == Phase::Complete) {
             json << ",\"dur\":" << dur_us;
         }
-
         if (id) {
-            json << ",\"id\":\"" << id << "\"";
+            json << ",\"id\":" << quote(id);
         }
-
+        if (scope) {
+            json << ",\"s\":" << quote(scope);
+        }
         if (bind_point) {
-            json << ",\"bp\":\"" << bind_point << "\"";
+            json << ",\"bp\":" << quote(bind_point);
         }
 
-        // 处理参数
-        if (!args.empty() || phase == Phase::Metadata || phase == Phase::Counter) {
-            json << ",\"args\":{";
-            bool first = true;
-
-            for (const auto &arg : args) {
-                if (!first)
-                    json << ",";
-                json << "\"" << arg.name << "\":\"" << escapeJSON(arg.value) << "\"";
-                first = false;
+        json << ",\"args\":{";
+        bool first = true;
+        for (const auto &arg : args) {
+            if (!first) {
+                json << ",";
             }
-
-            json << "}";
+            json << quote(arg.name) << ":" << argValueToJSON(arg);
+            first = false;
         }
+        json << "}";
 
         json << "}";
         return json.str();
@@ -276,7 +322,13 @@ private:
     static Event CreateAsync(const char *name, Phase ph, uint64_t ts, uint32_t pid,
                              const char *async_id, const char *cat = nullptr)
     {
-        Event e = Create(name, ph, ts, pid, 0); // tid=0 for async events
+        return CreateAsync(name, ph, ts, pid, 0, async_id, cat);
+    }
+
+    static Event CreateAsync(const char *name, Phase ph, uint64_t ts, uint32_t pid, uint32_t tid,
+                             const char *async_id, const char *cat = nullptr)
+    {
+        Event e = Create(name, ph, ts, pid, tid);
         e.id = async_id;
         e.cat = cat;
         return e;
@@ -322,6 +374,24 @@ private:
     /**
      * @brief 转义JSON字符串
      */
+    static std::string quote(const std::string &str)
+    {
+        return "\"" + escapeJSON(str) + "\"";
+    }
+
+    static std::string argValueToJSON(const Arg &arg)
+    {
+        switch (arg.type) {
+        case Arg::Type::String:
+            return quote(arg.value);
+        case Arg::Type::Number:
+        case Arg::Type::Boolean:
+        case Arg::Type::Json:
+            return arg.value;
+        }
+        return quote(arg.value);
+    }
+
     static std::string escapeJSON(const std::string &str)
     {
         std::ostringstream result;

@@ -150,7 +150,7 @@ public:
     void asyncBegin(const char *name, const char *id, const char *cat = nullptr)
     {
         setThreadName();
-        pushEvent(Event::CreateAsyncStart(name, now_us(), pid(), id, cat));
+        pushEvent(Event::CreateAsyncStart(name, now_us(), pid(), tid(), id, cat));
     }
 
     /**
@@ -162,7 +162,7 @@ public:
     void asyncEnd(const char *name, const char *id, const char *cat = nullptr)
     {
         setThreadName();
-        pushEvent(Event::CreateAsyncEnd(name, now_us(), pid(), id, cat));
+        pushEvent(Event::CreateAsyncEnd(name, now_us(), pid(), tid(), id, cat));
     }
 
     /**
@@ -225,8 +225,9 @@ public:
             return;
         }
         size_t snapshot = write_index_.load(std::memory_order_acquire);
-        size_t count = full_ ? kMaxEvents : snapshot;
-        size_t start = full_ ? snapshot % kMaxEvents : 0;
+        bool full = full_.load(std::memory_order_acquire);
+        size_t count = full ? kMaxEvents : snapshot;
+        size_t start = full ? snapshot % kMaxEvents : 0;
 
         out->reserve(out->capacity() + count * 512);
         out->append("[\n");
@@ -261,6 +262,7 @@ private:
     explicit Tracer()
         : write_index_(0)
         , events_(new Event[kMaxEvents])
+        , full_(false)
     {
     }
     Tracer(const Tracer &) = delete;
@@ -370,7 +372,7 @@ private:
     {
         size_t idx = write_index_.fetch_add(1, std::memory_order_relaxed);
         if (idx >= kMaxEvents) {
-            full_ = true;
+            full_.store(true, std::memory_order_release);
             if (idx % kMaxEvents == 0) {
                 tls().thread_metadata_registered = false;
             }
@@ -380,7 +382,7 @@ private:
 
     std::atomic<size_t> write_index_; ///< 事件写入索引(原子操作)
     Event *events_;                   ///< 事件缓冲区
-    bool full_;                       ///< 缓冲区是否已满
+    std::atomic<bool> full_;          ///< 缓冲区是否已满
 };
 
 /**

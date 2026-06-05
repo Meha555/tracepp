@@ -1,0 +1,6 @@
+target("format_test")
+    set_kind("binary")
+    set_default(false)
+    add_files("format_test.cpp")
+    add_deps("tracepp")
+    add_tests("default")
